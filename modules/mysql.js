@@ -1,10 +1,12 @@
 let mysql = require("mysql"),
     bdd = mysql.createConnection({
         host: 'localhost',
-        user: 'mike',
-        password: 'mike',
-        database: 'project',
+        user: 'root',
+        password: '',
+        database: 'cpcsi2',
+/*
         port: '8889' // A supprimer
+*/
     });
 
 bdd.connect(); // Connection à la base de donnée MySql

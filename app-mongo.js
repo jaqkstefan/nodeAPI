@@ -1,48 +1,70 @@
-/** START Import Module NodeJs **/
-const express = require('express'), // Modele de routing - Permet la gestion les routes.
-    mongoose = require('mongoose'), // Module de connection et gestion de MongoDB via le NodeJs - En php equivalent de PDO
-    bcryptjs = require('bcryptjs'), // Cryptage du password
-    bodyParser = require('body-parser'), // Middleware - Permet de parser les données envoyer par l'utilisateur et de les traiter de manière facile.
-    app = express(),
-    jsonParser = bodyParser.urlencoded({ extended: false }); // Middleware - Il ce declache avant le lancenement de la function (Pour notre cas, avanc les fonction lier au route pour parser les data envoyer par le client)
-/** END Import Module NodeJs **/
+// TODO:  Everything need to be check back in this file ... no touched for long time
 
+
+/** START Import Module NodeJs **/
+const express = require('express'), // routing Model
+    mongoose = require('mongoose'), // connection to mongoDb as PDO in php
+    bcryptjs = require('bcryptjs'), // hash password
+    bodyParser = require('body-parser'), // Middleware help to parse body
+    app = express(),
+    jsonParser = bodyParser.urlencoded({ extended: false }); // Middleware sama as urlencoder
+
+/** END Import Module NodeJs **/
+const urlencodedParser = bodyParser.urlencoded({ extended: false })
 /** 
- * Conncetion MongoDb
- * mongodb://<address du serveur>:<port du serveur moongoDb>/<nom de la database>
+ * MongoDb connection
  */
 mongoose.connect("mongodb://localhost:27017/StefanPrince", function(err) {
-    console.log((err) ? err : 'Connection au mongo correct') // Terner - Si tout ce passe bien, data = 'Connection au mongo correct' sinon à l'erreur lier à la connection
+    console.log((err) ? err : 'Connection au mongo correct') // error if not connected
 })
 
 /**
- * Les Schema seront la sructure de nos données. Ils permettent de definir les attributs de données inserers
- * { type: Number, default: 0 } => Permet de definir une valeur par default
+ * schema are data structure that help to draw the table
  */
+const date = new Date();
+
+
+var options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+
+console.log(date.toLocaleDateString('fr-FR', options));
+const timestamp = date.getTime();
 const userSchema = mongoose.Schema({
-        nom: String,
-        prenom: String,
-        email: String,
-        password: String,
+        firstname: { type: String, length: 25 },
+        lastname: { type: String, length: 25 },
+        Email: { type: String, length: 150 },
+        Password: { type: String, length: 20 },
+        date_naissance: Date,
+        sexe: String,
+        createdAt: { type: Date, default: timestamp }
+
+    });
+const tokenSchema = mongoose.Schema({
         token: String,
-        dateNaiss: Date,
-        sexe: { type: Number, default: 0 }
-    }),
-    userModel = mongoose.model('Users', userSchema); // Le model permet la relation entre les collection et les schemas.
+        refresh_token: Date,
+        revoquer: { type: Number, default: 0 },
+        createdAt: { type: Date, default: timestamp }
 
+    });
+    userModel = mongoose.model('users', userSchema); // Le model permet la relation entre les collection et les schemas.
+    tokenModel = mongoose.model('tokens', tokenSchema);
 let theUser = {
-        nom: "stefan",
-        prenom: "prince",
-        email: "jack@kmash.com",
-        password: "a",
-        sexe: 0,
-        dateNaiss: "1994-02-07"
+        firstname: "stefan",
+        lastname: "prince",
+        Email: "jack@kmash.com",
+        Password: "a",
+        sexe: "M",
+        date_naissance: "1994-02-07"
     } // Element test
-
+let theToken = {
+        token: "ty",
+        refresh_token: "2019-04-19",
+        revoquer: 0,
+        createdAt: timestamp
+    }
 
 app.get('/', function(req, res) {
     res.writeHead(200, { "content-type": "text/plain;" })
-    res.sendFile(__dirname + "/index.html"); // Afficher la page index.html cote client
+    res.sendFile(__dirname + "../front/loginscreen.js"); // Afficher la page loginscreen cote front
 })
 
 app.post('/', urlencodedParser, function(req, res) {
@@ -51,26 +73,34 @@ app.post('/', urlencodedParser, function(req, res) {
 })
 
 app.post('/login', urlencodedParser, function(req, res) {
-    // userModel.find({ email: req.body.email }, function(){}) - Rechcercher un ensemble d'utilisateur ayant la meme adress email => req.body.email
-    /**
-     * findOne
-     * Rechcercher un SEUL utilisateur ayant la meme adress email => req.body.email
-     */
-    userModel.findOne({ email: req.body.email }, function(err, user) {
+    userModel.findOne({ Email: req.body.Email }, function(err, user) {   // find the user with that mail
         if (err || user == null)
             res.end("Error")
         else {
-            bcryptjs.compare(req.body.password, user.password, function(err, resp) {
+            bcryptjs.compare(req.body.Password, user.Password, function (err, resp) {
                 if (resp) {
-                    res.writeHead(200, { "content-type": "application/json; charset=utf-8" })
-                    res.end(JSON.stringify({
-                        nom: user.nom,
-                        prenom: user.prenom,
-                        email: user.email,
-                        token: user.token,
-                        sexe: user.sexe,
-                        dateNaiss: user.dateNaiss
-                    }))
+                    tokenModel.findOne({ createdAt: user.createdAt }, function(err, tok) {
+                        if (err || tok == null)
+                            res.end("token unMatched")
+                        else {
+                            res.writeHead(200, {"content-type": "application/json; charset=utf-8"})
+                            res.end(JSON.stringify({
+                                firstname: user.firstname,
+                                lastname: user.lastname,
+                                Email: user.Email,
+                                /*
+                                     token: user.token,
+                                */
+                                sexe: user.sexe,
+                                date_naissance: user.date_naissance,
+                                token: tok.token,
+
+                                /*
+                                    Password: user.Password
+                                */
+                            }))
+                        }
+                    })
                 } else
                     res.end("Error password")
             })
@@ -78,14 +108,19 @@ app.post('/login', urlencodedParser, function(req, res) {
     })
 })
 
-app.post('/user/add', urlencodedParser, function(req, res) {
+app.post('/register', urlencodedParser, function(req, res) {
     bcryptjs.genSalt(10, function(err, salt) {
-        bcryptjs.hash(theUser.password, salt, function(error, passwHash) {
-            theUser.password = passwHash;
-            theUser.token = Math.random().toString(36).substr(2); // Création d'un token
-            let newUser = new userModel(theUser); // Nouvelle instance de model avec en param. dans le constructeur, un object permmettant la création d'un nouvelle entiter avec les caract. de l'object inserer
+        bcryptjs.hash(req.body.Password, salt, function(error, passwHash) {
+            req.body.Password = passwHash;
+            let newUser = new userModel(req.body); // Nouvelle instance de model avec en param. dans le constructeur, un object permmettant la création d'un nouvelle entiter avec les caract. de l'object inserer
             newUser.save(function() { // Savegarde de l'instance
-                console.log("User register")
+                console.log("User registered")
+                res.end("OK");
+            })
+            theToken.token = Math.random().toString(36).substr(2);
+            let newToken = new tokenModel(theToken);
+            newToken.save(function () {
+                console.log("token inserted")
                 res.end("OK");
             })
         })

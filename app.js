@@ -3,6 +3,7 @@ const express = require('express'),
     bcryptjs = require('bcryptjs'),
     mysql = require('./modules/mysql.js').mysql,
     bodyParser = require('body-parser'),
+    session = require('express-session'),
     app = express(),
     jsonParser = bodyParser.urlencoded({ extended: false });
 /** END Import Module NodeJs **/
