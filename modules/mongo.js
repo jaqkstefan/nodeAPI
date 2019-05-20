@@ -14,8 +14,8 @@ mongoose.connect("mongodb://localhost:27017/project", function(err) {
 })
 
 const analyticSchema = mongoose.Schema({
-    id: Number,
-    task: String,
+    userId: Number,
+    events: {Object: {event: {type: String, enum: ['Click', 'scroll'], default: 'Click'}}},
     page: String,
     createdAt: { type: Date, default: Date.now }
 });
